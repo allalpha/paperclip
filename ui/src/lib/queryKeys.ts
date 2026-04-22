@@ -122,6 +122,12 @@ export const queryKeys = {
     providers: (companyId: string) => ["secret-providers", companyId] as const,
   },
   dashboard: (companyId: string) => ["dashboard", companyId] as const,
+  analytics: {
+    funnel: (companyId: string) => ["analytics", "funnel", companyId] as const,
+    sources: (companyId: string) => ["analytics", "sources", companyId] as const,
+    agents: (companyId: string) => ["analytics", "agents", companyId] as const,
+    summary: (companyId: string) => ["analytics", "summary", companyId] as const,
+  },
   userProfile: (companyId: string, userSlug: string) =>
     ["user-profile", companyId, userSlug] as const,
   sidebarBadges: (companyId: string) => ["sidebar-badges", companyId] as const,

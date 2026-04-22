@@ -193,6 +193,7 @@ export type {
 } from "./heartbeat.js";
 export type { LiveEvent } from "./live.js";
 export type { DashboardRunActivityDay, DashboardSummary } from "./dashboard.js";
+export type { AnalyticsFunnelStage, AnalyticsFunnel, AnalyticsSource, AnalyticsAgentStats, AnalyticsAgentSummary, AnalyticsSummary } from "./analytics.js";
 export type { ActivityEvent } from "./activity.js";
 export type {
   UserProfileActivitySummary,

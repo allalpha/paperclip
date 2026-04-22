@@ -1,4 +1,4 @@
-import type { DashboardRunActivityDay, HeartbeatRun } from "@paperclipai/shared";
+import type { DashboardRunActivityDay, HeartbeatRun, AnalyticsFunnel, AnalyticsSource, AnalyticsAgentStats } from "@paperclipai/shared";
 
 /* ---- Utilities ---- */
 
@@ -268,6 +268,141 @@ export function SuccessRateChart(props: RunChartProps) {
         })}
       </div>
       <DateLabels days={days} />
+    </div>
+  );
+}
+
+/* ---- Analytics Charts ---- */
+
+const funnelColors: Record<string, string> = {
+  backlog: "#64748b",
+  todo: "#3b82f6",
+  in_progress: "#8b5cf6",
+  in_review: "#a855f7",
+  blocked: "#ef4444",
+  done: "#10b981",
+  cancelled: "#6b7280",
+};
+
+const funnelLabels: Record<string, string> = {
+  backlog: "Backlog",
+  todo: "To Do",
+  in_progress: "In Progress",
+  in_review: "In Review",
+  blocked: "Blocked",
+  done: "Done",
+  cancelled: "Cancelled",
+};
+
+export function FunnelChart({ funnel }: { funnel: AnalyticsFunnel }) {
+  const { stages } = funnel;
+  if (stages.length === 0) return <p className="text-xs text-muted-foreground">No issues</p>;
+
+  const maxValue = Math.max(...stages.map(s => s.count), 1);
+
+  return (
+    <div>
+      <div className="flex items-end gap-[6px] h-20">
+        {stages.map(stage => {
+          const heightPct = (stage.count / maxValue) * 100;
+          const color = funnelColors[stage.status] ?? "#6b7280";
+          const label = funnelLabels[stage.status] ?? stage.status;
+          return (
+            <div key={stage.status} className="flex-1 h-full flex flex-col justify-end" title={`${label}: ${stage.count}`}>
+              {stage.count > 0 ? (
+                <div className="rounded-sm" style={{ height: `${heightPct}%`, minHeight: 2, backgroundColor: color }} />
+              ) : (
+                <div className="bg-muted/30 rounded-sm" style={{ height: 2 }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-[6px] mt-1.5">
+        {stages.map(stage => (
+          <div key={stage.status} className="flex-1 text-center">
+            <span className="text-[9px] text-muted-foreground tabular-nums">{funnelLabels[stage.status] ?? stage.status}</span>
+          </div>
+        ))}
+      </div>
+      <ChartLegend items={stages.map(s => ({ color: funnelColors[s.status] ?? "#6b7280", label: `${funnelLabels[s.status] ?? s.status} (${s.count})` }))} />
+    </div>
+  );
+}
+
+const sourceColors = ["#3b82f6", "#8b5cf6", "#10b981", "#f97316", "#ef4444", "#eab308", "#6b7280", "#64748b"];
+
+export function SourceChart({ sources }: { sources: AnalyticsSource[] }) {
+  if (sources.length === 0) return <p className="text-xs text-muted-foreground">No sources</p>;
+
+  const maxValue = Math.max(...sources.map(s => s.count), 1);
+
+  return (
+    <div>
+      <div className="flex items-end gap-[6px] h-20">
+        {sources.map((source, i) => {
+          const heightPct = (source.count / maxValue) * 100;
+          const color = sourceColors[i % sourceColors.length];
+          return (
+            <div key={source.originKind} className="flex-1 h-full flex flex-col justify-end" title={`${source.originKind}: ${source.count}`}>
+              {source.count > 0 ? (
+                <div className="rounded-sm" style={{ height: `${heightPct}%`, minHeight: 2, backgroundColor: color }} />
+              ) : (
+                <div className="bg-muted/30 rounded-sm" style={{ height: 2 }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-[6px] mt-1.5">
+        {sources.map(source => (
+          <div key={source.originKind} className="flex-1 text-center">
+            <span className="text-[9px] text-muted-foreground tabular-nums">{source.originKind}</span>
+          </div>
+        ))}
+      </div>
+      <ChartLegend items={sources.map((s, i) => ({ color: sourceColors[i % sourceColors.length], label: `${s.originKind} (${s.count})` }))} />
+    </div>
+  );
+}
+
+export function AgentPerformanceChart({ agents }: { agents: AnalyticsAgentStats[] }) {
+  if (agents.length === 0) return <p className="text-xs text-muted-foreground">No agent runs</p>;
+
+  const maxValue = Math.max(...agents.map(a => a.total), 1);
+
+  return (
+    <div>
+      <div className="flex items-end gap-[6px] h-20">
+        {agents.map(agent => {
+          const heightPct = (agent.total / maxValue) * 100;
+          return (
+            <div key={agent.agentId} className="flex-1 h-full flex flex-col justify-end" title={`${agent.agentName}: ${agent.succeeded}/${agent.total} succeeded`}>
+              {agent.total > 0 ? (
+                <div className="flex flex-col-reverse gap-px overflow-hidden" style={{ height: `${heightPct}%`, minHeight: 2 }}>
+                  {agent.succeeded > 0 && <div className="bg-emerald-500" style={{ flex: agent.succeeded }} />}
+                  {agent.failed > 0 && <div className="bg-red-500" style={{ flex: agent.failed }} />}
+                  {agent.other > 0 && <div className="bg-neutral-500" style={{ flex: agent.other }} />}
+                </div>
+              ) : (
+                <div className="bg-muted/30 rounded-sm" style={{ height: 2 }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-[6px] mt-1.5">
+        {agents.map(agent => (
+          <div key={agent.agentId} className="flex-1 text-center">
+            <span className="text-[9px] text-muted-foreground tabular-nums truncate block">{agent.agentName}</span>
+          </div>
+        ))}
+      </div>
+      <ChartLegend items={[
+        { color: "#10b981", label: "Succeeded" },
+        { color: "#ef4444", label: "Failed" },
+        { color: "#6b7280", label: "Other" },
+      ]} />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "../api/dashboard";
+import { analyticsApi } from "../api/analytics";
 import { activityApi } from "../api/activity";
 import { accessApi } from "../api/access";
 import { issuesApi } from "../api/issues";
@@ -22,7 +23,7 @@ import { timeAgo } from "../lib/timeAgo";
 import { cn, formatCents } from "../lib/utils";
 import { Bot, CircleDot, DollarSign, ShieldCheck, LayoutDashboard, PauseCircle } from "lucide-react";
 import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
-import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
+import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart, FunnelChart, SourceChart, AgentPerformanceChart } from "../components/ActivityCharts";
 import { PageSkeleton } from "../components/PageSkeleton";
 import type { Agent, Issue } from "@paperclipai/shared";
 import { PluginSlotOutlet } from "@/plugins/slots";
@@ -80,6 +81,12 @@ export function Dashboard() {
   const { data: companyMembers } = useQuery({
     queryKey: queryKeys.access.companyUserDirectory(selectedCompanyId!),
     queryFn: () => accessApi.listUserDirectory(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const { data: analyticsData } = useQuery({
+    queryKey: queryKeys.analytics.summary(selectedCompanyId!),
+    queryFn: () => analyticsApi.summary(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
 
@@ -305,6 +312,20 @@ export function Dashboard() {
               <SuccessRateChart activity={data.runActivity} />
             </ChartCard>
           </div>
+
+          {analyticsData && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <ChartCard title="Task Funnel" subtitle="Issues by status">
+                <FunnelChart funnel={analyticsData.funnel} />
+              </ChartCard>
+              <ChartCard title="Task Sources" subtitle="Issues by origin">
+                <SourceChart sources={analyticsData.sources} />
+              </ChartCard>
+              <ChartCard title="Agent Performance" subtitle="Run success by agent">
+                <AgentPerformanceChart agents={analyticsData.agents.agents} />
+              </ChartCard>
+            </div>
+          )}
 
           <PluginSlotOutlet
             slotTypes={["dashboardWidget"]}
