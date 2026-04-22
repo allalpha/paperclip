@@ -12,6 +12,9 @@ import {
   stringifyPaperclipWakePayload,
 } from "@paperclipai/adapter-utils/server-utils";
 import crypto, { randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { resolve } from "node:path";
 import { WebSocket } from "ws";
 
 type SessionKeyStrategy = "fixed" | "issue" | "run";
@@ -336,6 +339,21 @@ function resolveClaimedApiKeyPath(value: unknown): string {
   return nonEmpty(value) ?? DEFAULT_CLAIMED_API_KEY_PATH;
 }
 
+function readClaimedApiKey(claimedApiKeyPath: string): string | null {
+  const expandedPath = claimedApiKeyPath.startsWith("~/")
+    ? resolve(homedir(), claimedApiKeyPath.slice(2))
+    : claimedApiKeyPath;
+  try {
+    if (!existsSync(expandedPath)) return null;
+    const raw = readFileSync(expandedPath, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.token === "string" && parsed.token.length > 0) return parsed.token;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: WakePayload): Record<string, string> {
   const paperclipApiUrlOverride = resolvePaperclipApiUrlOverride(ctx.config.paperclipApiUrl);
   const paperclipEnv: Record<string, string> = {
@@ -346,6 +364,13 @@ function buildPaperclipEnvForWake(ctx: AdapterExecutionContext, wakePayload: Wak
   if (paperclipApiUrlOverride) {
     paperclipEnv.PAPERCLIP_API_URL = paperclipApiUrlOverride;
   }
+  // Server-side API key injection: read the claimed key file so cloud agents don't need filesystem access
+  const claimedApiKeyPath = resolveClaimedApiKeyPath(ctx.config.claimedApiKeyPath);
+  const claimedApiKey = readClaimedApiKey(claimedApiKeyPath);
+  if (claimedApiKey) {
+    paperclipEnv.PAPERCLIP_API_KEY = claimedApiKey;
+  }
+
   if (wakePayload.taskId) paperclipEnv.PAPERCLIP_TASK_ID = wakePayload.taskId;
   if (wakePayload.wakeReason) paperclipEnv.PAPERCLIP_WAKE_REASON = wakePayload.wakeReason;
   if (wakePayload.wakeCommentId) paperclipEnv.PAPERCLIP_WAKE_COMMENT_ID = wakePayload.wakeCommentId;
@@ -364,11 +389,13 @@ function buildWakeText(
   structuredWakePrompt: string,
 ): string {
   const claimedApiKeyPath = "~/.openclaw/workspace/paperclip-claimed-api-key.json";
+  const hasInjectedApiKey = !!paperclipEnv.PAPERCLIP_API_KEY;
   const orderedKeys = [
     "PAPERCLIP_RUN_ID",
     "PAPERCLIP_AGENT_ID",
     "PAPERCLIP_COMPANY_ID",
     "PAPERCLIP_API_URL",
+    "PAPERCLIP_API_KEY",
     "PAPERCLIP_TASK_ID",
     "PAPERCLIP_WAKE_REASON",
     "PAPERCLIP_WAKE_COMMENT_ID",
@@ -387,6 +414,10 @@ function buildWakeText(
   const issueIdHint = payload.taskId ?? payload.issueId ?? "";
   const apiBaseHint = paperclipEnv.PAPERCLIP_API_URL ?? "<set PAPERCLIP_API_URL>";
 
+  const apiKeyInstruction = hasInjectedApiKey
+    ? `PAPERCLIP_API_KEY has been set above — use it directly for Authorization: Bearer $PAPERCLIP_API_KEY.`
+    : `PAPERCLIP_API_KEY=<token from ${claimedApiKeyPath}>\n\nLoad PAPERCLIP_API_KEY from ${claimedApiKeyPath} (the token you saved after claim-api-key).`;
+
   const lines = [
     "Paperclip wake event for a cloud adapter.",
     "",
@@ -394,9 +425,8 @@ function buildWakeText(
     "",
     "Set these values in your run context:",
     ...envLines,
-    `PAPERCLIP_API_KEY=<token from ${claimedApiKeyPath}>`,
     "",
-    `Load PAPERCLIP_API_KEY from ${claimedApiKeyPath} (the token you saved after claim-api-key).`,
+    apiKeyInstruction,
     "",
     `api_base=${apiBaseHint}`,
     `task_id=${payload.taskId ?? ""}`,
