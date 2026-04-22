@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:net";
 import path from "node:path";
 import { ensurePostgresDatabase, getPostgresDataDirectory } from "./client.js";
@@ -158,6 +158,17 @@ async function ensureEmbeddedPostgresConnection(
   }
   if (existsSync(postmasterPidFile)) {
     rmSync(postmasterPidFile, { force: true });
+  }
+  // Clean up stale shared memory files left by ungraceful shutdowns (common on Windows restart)
+  try {
+    const dataDirEntries = readdirSync(dataDir);
+    for (const entry of dataDirEntries) {
+      if (entry.startsWith("postgresql-") && entry.endsWith(".pid")) {
+        rmSync(path.resolve(dataDir, entry), { force: true });
+      }
+    }
+  } catch {
+    // Non-critical — ignore if cleanup fails
   }
   try {
     await instance.start();
