@@ -164,7 +164,7 @@ export function Projects() {
 
   const updateProject = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
-      projectsApi.update(id, data, selectedCompanyId),
+      projectsApi.update(id, data, selectedCompanyId ?? undefined),
     onSuccess: () => {
       if (selectedCompanyId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.projects.list(selectedCompanyId) });
