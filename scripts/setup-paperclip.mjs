@@ -1,9 +1,13 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { homedir } from "node:os";
 
 const PAPERCLIP = "http://localhost:3100";
-const OPENCLAW_TOKEN = "a0253ea88453e4d7f508ac8d5366575434ef84cd94e37387";
 const OPENCLAW_URL = "ws://127.0.0.1:18799/ws";
+
+// Token read from local config — never hardcode credentials in source
+const _openclawCfg = JSON.parse(readFileSync(homedir() + "/.openclaw/openclaw.json", "utf8"));
+const OPENCLAW_TOKEN = _openclawCfg.gateway?.auth?.token;
 
 // Company already created in previous run
 const companyId = "9e8c98e8-d507-493d-b16e-146f19aab899";
