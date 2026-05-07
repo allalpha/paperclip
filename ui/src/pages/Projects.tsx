@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PROJECT_STATUSES, type Project, type ProjectStatus } from "@paperclipai/shared";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
-import { useDialog } from "../context/DialogContext";
+import { useDialogActions } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useToastActions } from "../context/ToastContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -137,7 +137,7 @@ function ProjectRow({
 
 export function Projects() {
   const { selectedCompanyId } = useCompany();
-  const { openNewProject } = useDialog();
+  const { openNewProject } = useDialogActions();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToastActions();
   const queryClient = useQueryClient();
